@@ -59,4 +59,7 @@ uchar (*ispTransmit)(uchar);
 /* set SCK speed. call before ispConnect! */
 void ispSetSCKOption(uchar sckoption);
 
+/* load extended address byte */
+void ispLoadExtendedAddressByte(unsigned long address);
+
 #endif /* __isp_h_included__ */

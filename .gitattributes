@@ -1,0 +1,6 @@
+*.sys binary
+*.exe binary
+*.dll binary
+*.sch binary
+*.pdf binary
+

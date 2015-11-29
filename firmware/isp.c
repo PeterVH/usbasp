@@ -6,7 +6,7 @@
  *                  over ISP interface
  * Licence........: GNU GPL v2 (see Readme.txt)
  * Creation Date..: 2005-02-23
- * Last change....: 2009-02-28
+ * Last change....: 2010-01-19
  */
 
 #include <avr/io.h>
@@ -19,6 +19,7 @@
 uchar sck_sw_delay;
 uchar sck_spcr;
 uchar sck_spsr;
+uchar isp_hiaddr;
 
 void spiHWenable() {
 	SPCR = sck_spcr;
@@ -33,6 +34,7 @@ void ispSetSCKOption(uchar option) {
 	if (option >= USBASP_ISP_SCK_93_75) {
 		ispTransmit = ispTransmit_hw;
 		sck_spsr = 0;
+		sck_sw_delay = 1;	/* force RST#/SCK pulse for 320us */
 
 		switch (option) {
 
@@ -122,6 +124,9 @@ void ispConnect() {
 	if (ispTransmit == ispTransmit_hw) {
 		spiHWenable();
 	}
+	
+	/* Initial extended address value */
+	isp_hiaddr = 0;
 }
 
 void ispDisconnect() {
@@ -190,10 +195,11 @@ uchar ispEnterProgrammingMode() {
 
 		spiHWdisable();
 
-		/* pulse SCK */
-		ISP_OUT |= (1 << ISP_SCK); /* SCK high */
+		/* pulse RST */
 		ispDelay();
-		ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
+		ISP_OUT |= (1 << ISP_RST); /* RST high */
+		ispDelay();
+		ISP_OUT &= ~(1 << ISP_RST); /* RST low */
 		ispDelay();
 
 		if (ispTransmit == ispTransmit_hw) {
@@ -205,7 +211,28 @@ uchar ispEnterProgrammingMode() {
 	return 1; /* error: device dosn't answer */
 }
 
+static void ispUpdateExtended(unsigned long address)
+{
+	uchar curr_hiaddr;
+
+	curr_hiaddr = (address >> 17);
+
+	/* check if extended address byte is changed */
+	if(isp_hiaddr != curr_hiaddr)
+	{
+		isp_hiaddr = curr_hiaddr;
+		/* Load Extended Address byte */
+		ispTransmit(0x4D);
+		ispTransmit(0x00);
+		ispTransmit(isp_hiaddr);
+		ispTransmit(0x00);
+	}
+}
+
 uchar ispReadFlash(unsigned long address) {
+
+	ispUpdateExtended(address);
+
 	ispTransmit(0x20 | ((address & 1) << 3));
 	ispTransmit(address >> 9);
 	ispTransmit(address >> 1);
@@ -219,6 +246,8 @@ uchar ispWriteFlash(unsigned long address, uchar data, uchar pollmode) {
 	 return 0;
 	 }
 	 */
+
+	ispUpdateExtended(address);
 
 	ispTransmit(0x40 | ((address & 1) << 3));
 	ispTransmit(address >> 9);
@@ -253,6 +282,9 @@ uchar ispWriteFlash(unsigned long address, uchar data, uchar pollmode) {
 }
 
 uchar ispFlushPage(unsigned long address, uchar pollvalue) {
+
+	ispUpdateExtended(address);
+	
 	ispTransmit(0x4C);
 	ispTransmit(address >> 9);
 	ispTransmit(address >> 1);

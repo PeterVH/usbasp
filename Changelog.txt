@@ -1,3 +1,11 @@
+usbasp.2011-05-28 (v1.4)
+------------------------
+- added TPI support for ATTiny4/5/6/10 (by Slawomir Fraś)
+- added support for controllers with flash >128kb (by Slawomir Fraś)
+- fixed resync after program enable signal to pulse RST (based on patch by Marco S)
+- updated usb driver to V-USB Release 2010-07-15
+
+
 usbasp.2009-02-28 (v1.3)
 ------------------------
 - added support for software control of ISP speed (based on patch by Jurgis Brigmanis)
