@@ -126,7 +126,7 @@ void ispConnect() {
 	}
 	
 	/* Initial extended address value */
-	isp_hiaddr = 0;
+	isp_hiaddr = 0xff;  /* ensure that even 0x00000 causes a write of the extended address byte */
 }
 
 void ispDisconnect() {
