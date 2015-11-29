@@ -1,13 +1,13 @@
 /*
-  isp.h - part of USBasp
-
-  Autor..........: Thomas Fischl <tfischl@gmx.de> 
-  Description....: Provides functions for communication/programming
-                   over ISP interface
-  Licence........: GNU GPL v2 (see Readme.txt)
-  Creation Date..: 2005-02-23
-  Last change....: 2007-07-23
-*/
+ * isp.h - part of USBasp
+ *
+ * Autor..........: Thomas Fischl <tfischl@gmx.de>
+ * Description....: Provides functions for communication/programming
+ *                  over ISP interface
+ * Licence........: GNU GPL v2 (see Readme.txt)
+ * Creation Date..: 2005-02-23
+ * Last change....: 2009-02-28
+ */
 
 #ifndef __isp_h_included__
 #define	__isp_h_included__
@@ -23,10 +23,6 @@
 #define ISP_MOSI  PB3
 #define ISP_MISO  PB4
 #define ISP_SCK   PB5
-
-#define ISP_DELAY 1
-#define ISP_SCK_SLOW 0
-#define ISP_SCK_FAST 1
 
 /* Prepare connection to target device */
 void ispConnect();

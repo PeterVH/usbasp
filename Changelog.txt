@@ -1,5 +1,11 @@
-usbasp.2007-10-23
------------------
+usbasp.2009-02-28 (v1.3)
+------------------------
+- added support for software control of ISP speed (based on patch by Jurgis Brigmanis)
+- included new AVRUSB driver version (Release 2008-11-26)
+- added libusb 0.1.12.1 windows drivers (needed for WinAVR version 20080512 or greater)
+
+usbasp.2007-10-23 (v1.2)
+------------------------
 - red LED turns on before connecting to target device: this signal can be used to control external tri-state buffers (by Pawel Szramowski)
 
 usbasp.2007-07-23

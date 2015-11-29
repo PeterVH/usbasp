@@ -1,53 +1,32 @@
 /*
-  USBasp - USB in-circuit programmer for Atmel AVR controllers
-
-  Thomas Fischl <tfischl@gmx.de>
-
-  License........: GNU GPL v2 (see Readme.txt)
-  Target.........: ATMega8 at 12 MHz
-  Creation Date..: 2005-02-20
-  Last change....: 2007-07-23
-
-  PC2 SCK speed option. GND  -> slow (8khz SCK),
-                        open -> fast (375kHz SCK)
-*/
+ * USBasp - USB in-circuit programmer for Atmel AVR controllers
+ *
+ * Thomas Fischl <tfischl@gmx.de>
+ *
+ * License........: GNU GPL v2 (see Readme.txt)
+ * Target.........: ATMega8 at 12 MHz
+ * Creation Date..: 2005-02-20
+ * Last change....: 2009-02-28
+ *
+ * PC2 SCK speed option.
+ * GND  -> slow (8khz SCK),
+ * open -> software set speed (default is 375kHz SCK)
+ */
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
 
+#include "usbasp.h"
 #include "usbdrv.h"
 #include "isp.h"
 #include "clock.h"
 
-#define USBASP_FUNC_CONNECT     1
-#define USBASP_FUNC_DISCONNECT  2
-#define USBASP_FUNC_TRANSMIT    3
-#define USBASP_FUNC_READFLASH   4
-#define USBASP_FUNC_ENABLEPROG  5
-#define USBASP_FUNC_WRITEFLASH  6
-#define USBASP_FUNC_READEEPROM  7
-#define USBASP_FUNC_WRITEEEPROM 8
-#define USBASP_FUNC_SETLONGADDRESS 9
-
-#define PROG_STATE_IDLE         0
-#define PROG_STATE_WRITEFLASH   1
-#define PROG_STATE_READFLASH    2
-#define PROG_STATE_READEEPROM   3
-#define PROG_STATE_WRITEEEPROM  4
-
-#define PROG_BLOCKFLAG_FIRST    1
-#define PROG_BLOCKFLAG_LAST     2
-
-#define ledRedOn()    PORTC &= ~(1 << PC1)
-#define ledRedOff()   PORTC |= (1 << PC1)
-#define ledGreenOn()  PORTC &= ~(1 << PC0)
-#define ledGreenOff() PORTC |= (1 << PC0)
-
 static uchar replyBuffer[8];
 
 static uchar prog_state = PROG_STATE_IDLE;
+static uchar prog_sck = USBASP_ISP_SCK_AUTO;
 
 static uchar prog_address_newmode = 0;
 static unsigned long prog_address;
@@ -56,213 +35,221 @@ static unsigned int prog_pagesize;
 static uchar prog_blockflags;
 static uchar prog_pagecounter;
 
-
 uchar usbFunctionSetup(uchar data[8]) {
 
-  uchar len = 0;
+	uchar len = 0;
 
-  if(data[1] == USBASP_FUNC_CONNECT){
+	if (data[1] == USBASP_FUNC_CONNECT) {
 
-    /* set SCK speed */
-    if ((PINC & (1 << PC2)) == 0) {
-      ispSetSCKOption(ISP_SCK_SLOW);
-    } else {
-      ispSetSCKOption(ISP_SCK_FAST);
-    }
+		/* set SCK speed */
+		if ((PINC & (1 << PC2)) == 0) {
+			ispSetSCKOption(USBASP_ISP_SCK_8);
+		} else {
+			ispSetSCKOption(prog_sck);
+		}
 
-    /* set compatibility mode of address delivering */
-    prog_address_newmode = 0;
+		/* set compatibility mode of address delivering */
+		prog_address_newmode = 0;
 
-    ledRedOn();
-    ispConnect();
+		ledRedOn();
+		ispConnect();
 
-  } else if (data[1] == USBASP_FUNC_DISCONNECT) {
-    ispDisconnect();
-    ledRedOff();
+	} else if (data[1] == USBASP_FUNC_DISCONNECT) {
+		ispDisconnect();
+		ledRedOff();
 
-  } else if (data[1] == USBASP_FUNC_TRANSMIT) {
-    replyBuffer[0] = ispTransmit(data[2]);
-    replyBuffer[1] = ispTransmit(data[3]);
-    replyBuffer[2] = ispTransmit(data[4]);
-    replyBuffer[3] = ispTransmit(data[5]);
-    len = 4;
+	} else if (data[1] == USBASP_FUNC_TRANSMIT) {
+		replyBuffer[0] = ispTransmit(data[2]);
+		replyBuffer[1] = ispTransmit(data[3]);
+		replyBuffer[2] = ispTransmit(data[4]);
+		replyBuffer[3] = ispTransmit(data[5]);
+		len = 4;
 
-  } else if (data[1] == USBASP_FUNC_READFLASH) {
-    
-    if (!prog_address_newmode)
-      prog_address = (data[3] << 8) | data[2];
-    
-    prog_nbytes = (data[7] << 8) | data[6];
-    prog_state = PROG_STATE_READFLASH;
-    len = 0xff; /* multiple in */
+	} else if (data[1] == USBASP_FUNC_READFLASH) {
 
-  } else if (data[1] == USBASP_FUNC_READEEPROM) {
-    
-    if (!prog_address_newmode)
-       prog_address = (data[3] << 8) | data[2];
+		if (!prog_address_newmode)
+			prog_address = (data[3] << 8) | data[2];
 
-    prog_nbytes = (data[7] << 8) | data[6];
-    prog_state = PROG_STATE_READEEPROM;
-    len = 0xff; /* multiple in */
+		prog_nbytes = (data[7] << 8) | data[6];
+		prog_state = PROG_STATE_READFLASH;
+		len = 0xff; /* multiple in */
 
-  } else if (data[1] == USBASP_FUNC_ENABLEPROG) {
-    replyBuffer[0] = ispEnterProgrammingMode();;
-    len = 1;
+	} else if (data[1] == USBASP_FUNC_READEEPROM) {
 
-  } else if (data[1] == USBASP_FUNC_WRITEFLASH) {
+		if (!prog_address_newmode)
+			prog_address = (data[3] << 8) | data[2];
 
-    if (!prog_address_newmode)
-      prog_address = (data[3] << 8) | data[2];
+		prog_nbytes = (data[7] << 8) | data[6];
+		prog_state = PROG_STATE_READEEPROM;
+		len = 0xff; /* multiple in */
 
-    prog_pagesize = data[4];
-    prog_blockflags = data[5] & 0x0F;
-    prog_pagesize += (((unsigned int)data[5] & 0xF0)<<4);
-    if (prog_blockflags & PROG_BLOCKFLAG_FIRST) {
-      prog_pagecounter = prog_pagesize;
-    }
-    prog_nbytes = (data[7] << 8) | data[6];
-    prog_state = PROG_STATE_WRITEFLASH;
-    len = 0xff; /* multiple out */
+	} else if (data[1] == USBASP_FUNC_ENABLEPROG) {
+		replyBuffer[0] = ispEnterProgrammingMode();
+		len = 1;
 
-  } else if (data[1] == USBASP_FUNC_WRITEEEPROM) {
+	} else if (data[1] == USBASP_FUNC_WRITEFLASH) {
 
-    if (!prog_address_newmode)
-      prog_address = (data[3] << 8) | data[2];
+		if (!prog_address_newmode)
+			prog_address = (data[3] << 8) | data[2];
 
-    prog_pagesize = 0;
-    prog_blockflags = 0;
-    prog_nbytes = (data[7] << 8) | data[6];
-    prog_state = PROG_STATE_WRITEEEPROM;
-    len = 0xff; /* multiple out */
+		prog_pagesize = data[4];
+		prog_blockflags = data[5] & 0x0F;
+		prog_pagesize += (((unsigned int) data[5] & 0xF0) << 4);
+		if (prog_blockflags & PROG_BLOCKFLAG_FIRST) {
+			prog_pagecounter = prog_pagesize;
+		}
+		prog_nbytes = (data[7] << 8) | data[6];
+		prog_state = PROG_STATE_WRITEFLASH;
+		len = 0xff; /* multiple out */
 
-  } else if(data[1] == USBASP_FUNC_SETLONGADDRESS) {
+	} else if (data[1] == USBASP_FUNC_WRITEEEPROM) {
 
-    /* set new mode of address delivering (ignore address delivered in commands) */
-    prog_address_newmode = 1;
-    /* set new address */
-    prog_address = *((unsigned long*)&data[2]);
-  }
+		if (!prog_address_newmode)
+			prog_address = (data[3] << 8) | data[2];
 
-  usbMsgPtr = replyBuffer;
+		prog_pagesize = 0;
+		prog_blockflags = 0;
+		prog_nbytes = (data[7] << 8) | data[6];
+		prog_state = PROG_STATE_WRITEEEPROM;
+		len = 0xff; /* multiple out */
 
-  return len;
+	} else if (data[1] == USBASP_FUNC_SETLONGADDRESS) {
+
+		/* set new mode of address delivering (ignore address delivered in commands) */
+		prog_address_newmode = 1;
+		/* set new address */
+		prog_address = *((unsigned long*) &data[2]);
+
+	} else if (data[1] == USBASP_FUNC_SETISPSCK) {
+
+		/* set sck option */
+		prog_sck = data[2];
+		replyBuffer[0] = 0;
+		len = 1;
+	}
+
+	usbMsgPtr = replyBuffer;
+
+	return len;
 }
-
 
 uchar usbFunctionRead(uchar *data, uchar len) {
 
-  uchar i;
+	uchar i;
 
-  /* check if programmer is in correct read state */
-  if ((prog_state != PROG_STATE_READFLASH) &&
-      (prog_state != PROG_STATE_READEEPROM)) {
-    return 0xff;
-  }
+	/* check if programmer is in correct read state */
+	if ((prog_state != PROG_STATE_READFLASH) && (prog_state
+			!= PROG_STATE_READEEPROM)) {
+		return 0xff;
+	}
 
-  /* fill packet */
-  for (i = 0; i < len; i++) {
-    if (prog_state == PROG_STATE_READFLASH) {
-      data[i] = ispReadFlash(prog_address);
-    } else {
-      data[i] = ispReadEEPROM(prog_address);
-    }
-    prog_address++;
-  }
+	/* fill packet */
+	for (i = 0; i < len; i++) {
+		if (prog_state == PROG_STATE_READFLASH) {
+			data[i] = ispReadFlash(prog_address);
+		} else {
+			data[i] = ispReadEEPROM(prog_address);
+		}
+		prog_address++;
+	}
 
-  /* last packet? */
-  if (len < 8) {
-    prog_state = PROG_STATE_IDLE;
-  }
+	/* last packet? */
+	if (len < 8) {
+		prog_state = PROG_STATE_IDLE;
+	}
 
-  return len;
+	return len;
 }
-
 
 uchar usbFunctionWrite(uchar *data, uchar len) {
 
-  uchar retVal = 0;
-  uchar i;
+	uchar retVal = 0;
+	uchar i;
 
-  /* check if programmer is in correct write state */
-  if ((prog_state != PROG_STATE_WRITEFLASH) &&
-      (prog_state != PROG_STATE_WRITEEEPROM)) {
-    return 0xff;
-  }
-
-
-  for (i = 0; i < len; i++) {
-
-    if (prog_state == PROG_STATE_WRITEFLASH) {
-      /* Flash */
-
-      if (prog_pagesize == 0) {
-	/* not paged */
-	ispWriteFlash(prog_address, data[i], 1);
-      } else {
-	/* paged */
-	ispWriteFlash(prog_address, data[i], 0);
-	prog_pagecounter --;
-	if (prog_pagecounter == 0) {
-	  ispFlushPage(prog_address, data[i]);
-	  prog_pagecounter = prog_pagesize;
+	/* check if programmer is in correct write state */
+	if ((prog_state != PROG_STATE_WRITEFLASH) && (prog_state
+			!= PROG_STATE_WRITEEEPROM)) {
+		return 0xff;
 	}
-      }
 
-    } else {
-      /* EEPROM */
-      ispWriteEEPROM(prog_address, data[i]);
-    }
+	for (i = 0; i < len; i++) {
 
-    prog_nbytes --;
+		if (prog_state == PROG_STATE_WRITEFLASH) {
+			/* Flash */
 
-    if (prog_nbytes == 0) {
-      prog_state = PROG_STATE_IDLE;
-      if ((prog_blockflags & PROG_BLOCKFLAG_LAST) &&
-	  (prog_pagecounter != prog_pagesize)) {
+			if (prog_pagesize == 0) {
+				/* not paged */
+				ispWriteFlash(prog_address, data[i], 1);
+			} else {
+				/* paged */
+				ispWriteFlash(prog_address, data[i], 0);
+				prog_pagecounter--;
+				if (prog_pagecounter == 0) {
+					ispFlushPage(prog_address, data[i]);
+					prog_pagecounter = prog_pagesize;
+				}
+			}
 
-	/* last block and page flush pending, so flush it now */
-	ispFlushPage(prog_address, data[i]);
-      }
-	  
-	  retVal = 1; // Need to return 1 when no more data is to be received
-    }
+		} else {
+			/* EEPROM */
+			ispWriteEEPROM(prog_address, data[i]);
+		}
 
-    prog_address ++;
-  }
+		prog_nbytes--;
 
-  return retVal;
+		if (prog_nbytes == 0) {
+			prog_state = PROG_STATE_IDLE;
+			if ((prog_blockflags & PROG_BLOCKFLAG_LAST) && (prog_pagecounter
+					!= prog_pagesize)) {
+
+				/* last block and page flush pending, so flush it now */
+				ispFlushPage(prog_address, data[i]);
+			}
+
+			retVal = 1; // Need to return 1 when no more data is to be received
+		}
+
+		prog_address++;
+	}
+
+	return retVal;
 }
 
+int main(void) {
+	uchar i, j;
 
-int main(void)
-{
-  uchar   i, j;
+	/* no pullups on USB and ISP pins */
+	PORTD = 0;
+	PORTB = 0;
+	/* all outputs except PD2 = INT0 */
+	DDRD = ~(1 << 2);
 
-  PORTD = 0;
-  PORTB = 0;		/* no pullups on USB and ISP pins */
-  DDRD = ~(1 << 2);	/* all outputs except PD2 = INT0 */
+	/* output SE0 for USB reset */
+	DDRB = ~0;
+	j = 0;
+	/* USB Reset by device only required on Watchdog Reset */
+	while (--j) {
+		i = 0;
+		/* delay >10ms for USB reset */
+		while (--i)
+			;
+	}
+	/* all USB and ISP pins inputs */
+	DDRB = 0;
 
-  DDRB = ~0;            /* output SE0 for USB reset */
-  j = 0;
-  while(--j){           /* USB Reset by device only required on Watchdog Reset */
-      i = 0;
-      while(--i);       /* delay >10ms for USB reset */
-  }
-  DDRB = 0;             /* all USB and ISP pins inputs */
+	/* all inputs except PC0, PC1 */
+	DDRC = 0x03;
+	PORTC = 0xfe;
 
-  DDRC = 0x03;          /* all inputs except PC0, PC1 */
-  PORTC = 0xfe;
+	/* init timer */
+	clockInit();
 
-  clockInit();          /* init timer */
-
-  ispSetSCKOption(ISP_SCK_FAST);
-
-  usbInit();
-  sei();
-  for(;;){	        /* main event loop */
-    usbPoll();
-  }
-  return 0;
+	/* main event loop */
+	usbInit();
+	sei();
+	for (;;) {
+		usbPoll();
+	}
+	return 0;
 }
-
 

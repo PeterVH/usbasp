@@ -133,5 +133,5 @@ libusb .......................... http://libusb.sourceforge.net/
 libusb-win32 .................... http://libusb-win32.sourceforge.net/
 
 
-2007-07-23 Thomas Fischl <tfischl@gmx.de>
+2009-02-28 Thomas Fischl <tfischl@gmx.de>
 http://www.fischl.de

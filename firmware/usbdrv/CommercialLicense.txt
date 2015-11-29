@@ -1,5 +1,5 @@
 AVR-USB Driver Software License Agreement
-Version 2006-07-24
+Version 2008-10-07
 
 THIS LICENSE AGREEMENT GRANTS YOU CERTAIN RIGHTS IN A SOFTWARE. YOU CAN
 ENTER INTO THIS AGREEMENT AND ACQUIRE THE RIGHTS OUTLINED BELOW BY PAYING
@@ -13,10 +13,11 @@ Grosse Schiffgasse 1A/7, 1020 Wien, AUSTRIA.
 
 1.2 "You" shall mean the Licensee.
 
-1.3 "AVR-USB" shall mean the firmware-only USB device implementation for
-Atmel AVR microcontrollers distributed by OBJECTIVE DEVELOPMENT and
-consisting of the files usbdrv.c, usbdrv.h, usbdrvasm.S, oddebug.c,
-oddebug.h, usbdrvasm.asm, iarcompat.h and usbconfig-prototype.h.
+1.3 "AVR-USB" shall mean all files included in the package distributed under
+the name "avrusb" by OBJECTIVE DEVELOPMENT (http://www.obdev.at/avrusb/)
+unless otherwise noted. This includes the firmware-only USB device
+implementation for Atmel AVR microcontrollers, some simple device examples
+and host side software examples and libraries.
 
 
 2 LICENSE GRANTS
@@ -25,11 +26,11 @@ oddebug.h, usbdrvasm.asm, iarcompat.h and usbconfig-prototype.h.
 code of AVR-USB.
 
 2.2 Distribution and Use. OBJECTIVE DEVELOPMENT grants you the
-non-exclusive right to use and distribute AVR-USB with your hardware
+non-exclusive right to use, copy and distribute AVR-USB with your hardware
 product(s), restricted by the limitations in section 3 below.
 
 2.3 Modifications. OBJECTIVE DEVELOPMENT grants you the right to modify
-your copy of AVR-USB according to your needs.
+the source code and your copy of AVR-USB according to your needs.
 
 2.4 USB IDs. OBJECTIVE DEVELOPMENT grants you the exclusive rights to use
 USB Product ID(s) sent to you in e-mail after receiving your payment in
