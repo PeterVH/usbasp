@@ -147,6 +147,8 @@ uchar ispTransmit_sw(uchar send_byte) {
 
 	uchar rec_byte = 0;
 	uchar i;
+
+	ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
 	for (i = 0; i < 8; i++) {
 
 		/* set MSB to MOSI-pin */
@@ -158,6 +160,8 @@ uchar ispTransmit_sw(uchar send_byte) {
 		/* shift to next bit */
 		send_byte = send_byte << 1;
 
+		ispDelay();
+
 		/* receive data */
 		rec_byte = rec_byte << 1;
 		if ((ISP_IN & (1 << ISP_MISO)) != 0) {
@@ -168,7 +172,6 @@ uchar ispTransmit_sw(uchar send_byte) {
 		ISP_OUT |= (1 << ISP_SCK); /* SCK high */
 		ispDelay();
 		ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
-		ispDelay();
 	}
 
 	return rec_byte;
