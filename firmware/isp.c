@@ -114,12 +114,15 @@ void ispConnect() {
 	/* reset device */
 	ISP_OUT &= ~(1 << ISP_RST); /* RST low */
 	ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
+	clockWait((1000/320) * 20);   /* Discharge pins, 20 msec, value arbitrarilly chosen */
 
 	/* positive reset pulse > 2 SCK (target) */
-	ispDelay();
 	ISP_OUT |= (1 << ISP_RST); /* RST high */
 	ispDelay();
 	ISP_OUT &= ~(1 << ISP_RST); /* RST low */
+
+	/* must wait > 20 msec before enter progmode command can be sent */
+	clockWait((1000/320) * 30);
 
 	if (ispTransmit == ispTransmit_hw) {
 		spiHWenable();
@@ -200,7 +203,9 @@ uchar ispEnterProgrammingMode() {
 		ISP_OUT |= (1 << ISP_RST); /* RST high */
 		ispDelay();
 		ISP_OUT &= ~(1 << ISP_RST); /* RST low */
-		ispDelay();
+
+		/* must wait > 20 msec before enter progmode command can be sent */
+		clockWait((1000/320) * 30);
 
 		if (ispTransmit == ispTransmit_hw) {
 			spiHWenable();
