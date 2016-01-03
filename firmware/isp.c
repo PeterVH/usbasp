@@ -21,6 +21,9 @@ uchar sck_spcr;
 uchar sck_spsr;
 uchar isp_hiaddr;
 
+static const uchar auto_clocks[] = { USBASP_ISP_SCK_1, USBASP_ISP_SCK_16, USBASP_ISP_SCK_93_75, USBASP_ISP_SCK_375, USBASP_ISP_SCK_1500 };
+static signed char clock_probing = -1;
+
 void spiHWenable() {
 	SPCR = sck_spcr;
 	SPSR = sck_spsr;
@@ -28,8 +31,10 @@ void spiHWenable() {
 
 void ispSetSCKOption(uchar option) {
 
-	if (option == USBASP_ISP_SCK_AUTO)
-		option = USBASP_ISP_SCK_375;
+	if (option == USBASP_ISP_SCK_AUTO) {
+		clock_probing = (sizeof(auto_clocks) / sizeof(auto_clocks[0])) - 1;
+		option = auto_clocks[clock_probing];
+	}
 
 	if (option >= USBASP_ISP_SCK_93_75) {
 		ispTransmit = ispTransmit_hw;
@@ -189,6 +194,10 @@ uchar ispEnterProgrammingMode() {
 	uchar check;
 	uchar count = 32;
 
+	/* for clock probing, try 3 times for each speed */
+	if (clock_probing > -1)
+		count = 3;
+
 	while (count--) {
 		ispTransmit(0xAC);
 		ispTransmit(0x53);
@@ -200,6 +209,15 @@ uchar ispEnterProgrammingMode() {
 		}
 
 		spiHWdisable();
+
+		/* clock probing: try next slower speed */
+		if (count == 0 && clock_probing > -1) {
+			clock_probing--;
+			if (clock_probing > -1) {
+				count = 3;
+				ispSetSCKOption(auto_clocks[clock_probing]);
+			}
+		}
 
 		/* pulse RST */
 		ispDelay();
