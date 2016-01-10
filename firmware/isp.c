@@ -144,6 +144,7 @@ uchar ispTransmit_sw(uchar send_byte) {
 
 	uchar rec_byte = 0;
 	uchar i;
+	ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
 	for (i = 0; i < 8; i++) {
 
 		/* set MSB to MOSI-pin */
@@ -155,17 +156,26 @@ uchar ispTransmit_sw(uchar send_byte) {
 		/* shift to next bit */
 		send_byte = send_byte << 1;
 
-		/* receive data */
+		/* This delay honors the MOSI setup time
+		 * as well as min LOW SCK width */
+		ispDelay();
+
+		/* SCK high */
+		ISP_OUT |= (1 << ISP_SCK);
+
+		/* receive data
+		 * MISO signal has had plenty of time to settle given
+		 * above LOW SCK delay */
 		rec_byte = rec_byte << 1;
 		if ((ISP_IN & (1 << ISP_MISO)) != 0) {
 			rec_byte++;
 		}
 
-		/* pulse SCK */
-		ISP_OUT |= (1 << ISP_SCK); /* SCK high */
+		/* This delay honors min HIGH SCK width */
 		ispDelay();
-		ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
-		ispDelay();
+
+		/* SCK low */
+		ISP_OUT &= ~(1 << ISP_SCK);
 	}
 
 	return rec_byte;
