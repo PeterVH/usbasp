@@ -115,11 +115,8 @@ void ispConnect() {
 	ISP_OUT &= ~(1 << ISP_RST); /* RST low */
 	ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
 
-	/* positive reset pulse > 2 SCK (target) */
-	ispDelay();
-	ISP_OUT |= (1 << ISP_RST); /* RST high */
-	ispDelay();
-	ISP_OUT &= ~(1 << ISP_RST); /* RST low */
+	/* wait >20 msec (as we would do after a reset pulse) */
+	clockWait((1000/320) * 30);
 
 	if (ispTransmit == ispTransmit_hw) {
 		spiHWenable();
@@ -212,11 +209,13 @@ uchar ispEnterProgrammingMode() {
 
 		spiHWdisable();
 
-		/* pulse RST */
+		/* The target is out of sync: give SCK one pulse and try again.
+		 * In the worst case, we should be back in sync after
+		 * retrying 32 times (the total nr of bits in the 4 byte command).
+		 */
+		ISP_OUT |= (1 << ISP_SCK); /* SCK high */
 		ispDelay();
-		ISP_OUT |= (1 << ISP_RST); /* RST high */
-		ispDelay();
-		ISP_OUT &= ~(1 << ISP_RST); /* RST low */
+		ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
 		ispDelay();
 
 		if (ispTransmit == ispTransmit_hw) {
