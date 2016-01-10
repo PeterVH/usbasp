@@ -144,10 +144,17 @@ uchar ispTransmit_sw(uchar send_byte) {
 
 	uchar rec_byte = 0;
 	uchar i;
+
+	/* Both master and slave:
+	 *  - Write data on the falling edge of SCK
+	 *  - Read data on the rising edge of SCK
+	 * MISO an MOSI can settle during the LOW SCK interval.
+	 */
 	ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
 	for (i = 0; i < 8; i++) {
 
-		/* set MSB to MOSI-pin */
+		/* Write data,
+		 * set MSB to MOSI-pin */
 		if ((send_byte & 0x80) != 0) {
 			ISP_OUT |= (1 << ISP_MOSI); /* MOSI high */
 		} else {
@@ -163,7 +170,7 @@ uchar ispTransmit_sw(uchar send_byte) {
 		/* SCK high */
 		ISP_OUT |= (1 << ISP_SCK);
 
-		/* receive data
+		/* Read data.
 		 * MISO signal has had plenty of time to settle given
 		 * above LOW SCK delay */
 		rec_byte = rec_byte << 1;
