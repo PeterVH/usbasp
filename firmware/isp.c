@@ -236,6 +236,7 @@ uchar ispEnterProgrammingMode() {
 		 * In the worst case, we should be back in sync after
 		 * retrying 32 times (the total nr of bits in the 4 byte command).
 		 */
+		ispDelay();
 		ISP_OUT |= (1 << ISP_SCK); /* SCK high */
 		ispDelay();
 		ISP_OUT &= ~(1 << ISP_SCK); /* SCK low */
