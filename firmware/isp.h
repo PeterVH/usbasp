@@ -30,6 +30,9 @@ void ispConnect();
 /* Close connection to target device */
 void ispDisconnect();
 
+/* Take target briefly out of reset while MOSI ans SCK are inputs */
+void ispSafeResetPulse(void);
+
 /* read an write a byte from isp using software (slow) */
 uchar ispTransmit_sw(uchar send_byte);
 
