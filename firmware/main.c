@@ -37,6 +37,15 @@ static unsigned int prog_pagesize;
 static uchar prog_blockflags;
 static uchar prog_pagecounter;
 
+/* Array of clock speeds try during auto probing */
+static const uchar auto_clocks[] = {
+	USBASP_ISP_SCK_1500,
+	USBASP_ISP_SCK_375,
+	USBASP_ISP_SCK_93_75,
+	USBASP_ISP_SCK_16,
+	USBASP_ISP_SCK_1,
+};
+
 uchar usbFunctionSetup(uchar data[8]) {
 
 	uchar len = 0;
@@ -44,11 +53,10 @@ uchar usbFunctionSetup(uchar data[8]) {
 	if (data[1] == USBASP_FUNC_CONNECT) {
 
 		/* set SCK speed */
-		if ((PINC & (1 << PC2)) == 0) {
-			ispSetSCKOption(USBASP_ISP_SCK_8);
-		} else {
-			ispSetSCKOption(prog_sck);
-		}
+		if ((PINC & (1 << PC2)) == 0)
+			prog_sck = USBASP_ISP_SCK_8;
+
+		ispSetSCKOption(prog_sck);
 
 		/* set compatibility mode of address delivering */
 		prog_address_newmode = 0;
@@ -86,8 +94,31 @@ uchar usbFunctionSetup(uchar data[8]) {
 		len = 0xff; /* multiple in */
 
 	} else if (data[1] == USBASP_FUNC_ENABLEPROG) {
-		replyBuffer[0] = ispEnterProgrammingMode();
+		uchar rc = 1;
+
+		if (prog_sck != USBASP_ISP_SCK_AUTO)
+			rc = ispEnterProgrammingMode();
+		else {
+			/* Auto probing of spi clock */
+			uchar i;
+			for (i = 0; i < (sizeof(auto_clocks) / sizeof(auto_clocks[0])); i++) {
+				ispSetSCKOption(auto_clocks[i]);
+				rc = ispEnterProgrammingMode();
+				if (rc == 0) {
+					prog_sck = auto_clocks[i];
+					/* We know the highest clock speed that works,
+					 * take target briefly out of reset...  */
+					ispSafeResetPulse(); /* needed for subsequent flashing to work */
+					/* ...and enter programming mode again */
+					rc = ispEnterProgrammingMode();
+					if (rc != 0)
+						prog_sck = 0;
+					break;
+				}
+			}
+		}
 		len = 1;
+		replyBuffer[0] = rc;
 
 	} else if (data[1] == USBASP_FUNC_WRITEFLASH) {
 

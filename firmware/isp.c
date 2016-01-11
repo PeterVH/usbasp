@@ -29,7 +29,7 @@ void spiHWenable() {
 void ispSetSCKOption(uchar option) {
 
 	if (option == USBASP_ISP_SCK_AUTO)
-		option = USBASP_ISP_SCK_375;
+		return; /* We will do automatic clock probing later */
 
 	if (option >= USBASP_ISP_SCK_93_75) {
 		ispTransmit = ispTransmit_hw;
@@ -118,10 +118,6 @@ void ispConnect() {
 	/* wait >20 msec (as we would do after a reset pulse) */
 	clockWait((1000/320) * 30);
 
-	if (ispTransmit == ispTransmit_hw) {
-		spiHWenable();
-	}
-	
 	/* Initial extended address value */
 	isp_hiaddr = 0xff;  /* ensure that even 0x00000 causes a write of the extended address byte */
 }
@@ -135,6 +131,29 @@ void ispDisconnect() {
 
 	/* disable hardware SPI */
 	spiHWdisable();
+}
+
+void ispSafeResetPulse(void)
+{
+	/* set SCK and MOSI input */
+	ISP_DDR &= ~((1 << ISP_SCK) | (1 << ISP_MOSI));
+	/* keep tartget in reset, switch SCK an MOSI pullups off */
+	ISP_OUT &= ~((1 << ISP_RST) | (1 << ISP_SCK) | (1 << ISP_MOSI));
+
+	/* disable hardware SPI */
+	spiHWdisable();
+
+	/* safe (all other signals are inputs) unreset pulse */
+	ISP_OUT |= (1 << ISP_RST); /* RST high */
+	/* 320 usec */
+	clockWait(1);
+	ISP_OUT &= ~(1 << ISP_RST); /* RST low */
+
+	/* wait >20 msec */
+	clockWait((1000/320) * 30);
+
+	/* set SCK and MOSI output */
+	ISP_DDR |= (1 << ISP_SCK) | (1 << ISP_MOSI);
 }
 
 uchar ispTransmit_sw(uchar send_byte) {
@@ -197,6 +216,10 @@ uchar ispEnterProgrammingMode() {
 	uchar check;
 	uchar count = 32;
 
+	if (ispTransmit == ispTransmit_hw) {
+		spiHWenable();
+	}
+
 	while (count--) {
 		ispTransmit(0xAC);
 		ispTransmit(0x53);
@@ -223,7 +246,7 @@ uchar ispEnterProgrammingMode() {
 		}
 
 	}
-
+	spiHWdisable();
 	return 1; /* error: device dosn't answer */
 }
 
