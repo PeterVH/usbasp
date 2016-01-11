@@ -159,10 +159,18 @@ uchar usbFunctionSetup(uchar data[8]) {
 		prog_sck = data[2];
 		replyBuffer[0] = 0;
 		len = 1;
+	} else if (data[1] == USBASP_FUNC_GETISPSCK) {
+
+		/* get sck option,
+		 * usefull to read back the automatically probed clock speed */
+		replyBuffer[0] = 0;
+		replyBuffer[1] = prog_sck;
+		len = 2;
 
 #ifndef USBASP_CFG_DISABLE_TPI
 
 	} else if (data[1] == USBASP_FUNC_TPI_CONNECT) {
+
 		tpi_dly_cnt = data[2] | (data[3] << 8);
 
 		/* RST high */
