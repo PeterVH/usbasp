@@ -129,6 +129,8 @@ uchar usbFunctionSetup(uchar data[8]) {
 		replyBuffer[0] = 0;
 		len = 1;
 
+#ifndef USBASP_CFG_DISABLE_TPI
+
 	} else if (data[1] == USBASP_FUNC_TPI_CONNECT) {
 		tpi_dly_cnt = data[2] | (data[3] << 8);
 
@@ -183,16 +185,22 @@ uchar usbFunctionSetup(uchar data[8]) {
 		prog_nbytes = (data[7] << 8) | data[6];
 		prog_state = PROG_STATE_TPI_WRITE;
 		len = 0xff; /* multiple out */
+
+#endif
 	
 	} else if (data[1] == USBASP_FUNC_GETCAPABILITIES) {
+#ifndef USBASP_CFG_DISABLE_TPI
 		replyBuffer[0] = USBASP_CAP_0_TPI;
+#else
+		replyBuffer[0] = 0;
+#endif
 		replyBuffer[1] = 0;
 		replyBuffer[2] = 0;
 		replyBuffer[3] = 0;
 		len = 4;
 	}
 
-	usbMsgPtr = replyBuffer;
+	usbMsgPtr = (usbMsgPtr_t) replyBuffer;
 
 	return len;
 }
@@ -207,6 +215,7 @@ uchar usbFunctionRead(uchar *data, uchar len) {
 		return 0xff;
 	}
 
+#ifndef USBASP_CFG_DISABLE_TPI
 	/* fill packet TPI mode */
 	if(prog_state == PROG_STATE_TPI_READ)
 	{
@@ -214,6 +223,7 @@ uchar usbFunctionRead(uchar *data, uchar len) {
 		prog_address += len;
 		return len;
 	}
+#endif
 
 	/* fill packet ISP mode */
 	for (i = 0; i < len; i++) {
@@ -244,6 +254,7 @@ uchar usbFunctionWrite(uchar *data, uchar len) {
 		return 0xff;
 	}
 
+#ifndef USBASP_CFG_DISABLE_TPI
 	if (prog_state == PROG_STATE_TPI_WRITE)
 	{
 		tpi_write_block(prog_address, data, len);
@@ -256,6 +267,7 @@ uchar usbFunctionWrite(uchar *data, uchar len) {
 		}
 		return 0;
 	}
+#endif
 
 	for (i = 0; i < len; i++) {
 
