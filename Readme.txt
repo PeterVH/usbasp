@@ -1,7 +1,7 @@
 This is the README file for USBasp.
 
 USBasp is a USB in-circuit programmer for Atmel AVR controllers. It simply
-consists of an ATMega88 or an ATMega8 and a couple of passive components.
+consists of an ATMega48, ATMega88, or an ATMega8 and a couple of passive components.
 The programmer uses a firmware-only USB driver, no special USB controller
 is needed.
 
@@ -36,14 +36,13 @@ interface to slave exists in hardware but the firmware doesn't support it yet.
 USE PRECOMPILED VERSION
 
 Firmware:
-Flash "bin/firmware/usbasp.atmega88.xxxx-xx-xx.hex" or
-"bin/firmware/usbasp.atmega8.xxxx-xx-xx.hex" to the used controller with a
-working programmer (e.g. with avrdude, uisp, ...). Set jumper J2 to activate
-USBasp firmware update function.
-You have to change the fuse bits for external crystal (see "make fuses").
-# TARGET=atmega8    HFUSE=0xc9  LFUSE=0xef
-# TARGET=atmega48   HFUSE=0xdd  LFUSE=0xff
-# TARGET=atmega88   HFUSE=0xdd  LFUSE=0xff
+Existing pre-built hex images can be found in bin/firmware
+Flash with a working ISP programmer and s/w tool like avrdude or uisp etc...
+See the makefile in the firmware directory for instructions on how to
+flash existing images using make.
+type "make" or "make help".
+Set jumper J2 to activate USBasp firmware update function.
+You have to make sure to set the fuse bits for external crystal (see "make fuses").
 
 Windows:
 Start Windows and connect USBasp to the system. When Windows asks for a
@@ -115,7 +114,7 @@ bin/linux-nonroot for an example.
 FILES IN THE DISTRIBUTION
 
 Readme.txt ...................... The file you are currently reading
-firmware ........................ Source code of the controller firmware
+firmware ........................ Source code and makefile of the controller firmware
 firmware/usbdrv ................. AVR USB driver by Objective Development
 firmware/usbdrv/License.txt ..... Public license for AVR USB driver and USBasp
 circuit ......................... Circuit diagram in PDF and EAGLE format
@@ -138,5 +137,5 @@ libusb .......................... http://libusb.sourceforge.net/
 libusb-win32 .................... http://libusb-win32.sourceforge.net/
 
 
-2011-05-28 Thomas Fischl <tfischl@gmx.de>
+Thomas Fischl <tfischl@gmx.de>
 http://www.fischl.de
