@@ -6,6 +6,9 @@
 #   20151212   Bill Perry           Major re-work for multiple target MCUs
 #                                   along with command line overrides
 #
+#   Note: If GNU make is available  the GNUMakefile will be used instead of
+#   this file.
+#
 ##############################################################################
 # Fuse atmega8 high byte HFUSE:
 # 0xc9 = 1 1 0 0   1 0 0 1 <-- BOOTRST (boot reset vector at 0x0000)
