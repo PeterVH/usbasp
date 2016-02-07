@@ -5,7 +5,7 @@
 #   20061120   Hanns-Konrad Unger   help: and TARGET=atmega48 added
 #   20151212   Bill Perry           Major re-work for multiple target MCUs
 #   20160129   Peter Van Hoyweghen  Template based support for multiple MCUs
-#                                   (Requires GNU Make.).
+#                                   (Requires GNU Make).
 #
 #   Note GNU make prefers 'GNUMakefile' over' Makefile', so _this_ file
 #   will be used when GNU make is available and 'Makefile' will be used when
@@ -43,7 +43,7 @@ MCUS := atmega8 atmega48 atmega88
 # Minor revisions lower than 9 should have a leading 0 if you want them
 # printed as #.0# vs #.#
 USBASP_FWREV_MAJ:=1
-USBASP_FWREV_MIN:=05
+USBASP_FWREV_MIN:=06
 
 # The target MCU you are currently working with
 MCU:=atmega8

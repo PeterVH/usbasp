@@ -67,7 +67,7 @@
 # Minor revisions lower than 9 should have a leading 0 if you want them
 # printed as #.0# vs #.#
 USBASP_FWREV_MAJ=1
-USBASP_FWREV_MIN=05
+USBASP_FWREV_MIN=06
 
 # default target MCU type if MCU not specified/overridden on make commandline
 MCU=atmega8
