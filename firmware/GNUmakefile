@@ -23,18 +23,30 @@ MCUS := atmega8 atmega48 atmega88
 ###############################################################################
 # Begining of USER defined variables & defaults
 #
-# Any of these values can be ovridden:
-#	1. from a .config configuration file (which is ignored by git)
-#		To create a default .config file to start from:
-#			make .config
-#		Then adapt the .config to your needs.
-#		This is convenient as these settings will probably stay the same
-#		during development
-#	2. from the commandline by using:
+# Any of these values can be ovridden.
+#	1. from a config.mk config configuration file (which is ignored by git)
+#		To create a default config file to start from:
+#			make config
+#		Then adapt the config file to your needs.
+#		You can also set values in the config file by specifying them
+#		when making the config file:
+#			make config VARNAME=value
+#		example:
+#			make config MCU=atmega48 ISP=dragon_ISP
+#
+#		Use of config file is convenient as these settings will typically
+#		stay the same during development
+#
+#	2. from the commandline for a single invocation of make by using:
 #			make VARNAME=value
 # 		example:
 # 			make hex MCU=atmega48
 # 			make flash ISP=dragon_isp
+#		commandline variables will override the config file
+#
+# To remove the config file and start fresh:
+#	'make mrproper' or 'make distclean'
+#
 ###############################################################################
 
 # USBASP Firmware revision numbers
@@ -42,11 +54,11 @@ MCUS := atmega8 atmega48 atmega88
 # These values must be specified as decimal values.
 # Minor revisions lower than 9 should have a leading 0 if you want them
 # printed as #.0# vs #.#
-USBASP_FWREV_MAJ:=1
-USBASP_FWREV_MIN:=06
+USBASP_FWREV_MAJ := 1
+USBASP_FWREV_MIN := 06
 
 # The target MCU you are currently working with
-MCU:=atmega8
+MCU := atmega8
 
 # pick your ISP type and port
 #
@@ -56,9 +68,10 @@ MCU:=atmega8
 # ISP:=stk500       PORT:=/dev/ttyS1
 # ISP:=stk500v2     PORT:=/dev/ttyUSB0
 # ISP:=usbasp       PORT:=usb
+# ISP:=usbtiny      PORT:=usb
 # ISP:=dragon_isp   PORT:=usb
-ISP:=usbasp
-PORT:=usb
+ISP := usbasp
+PORT := usb
 
 # The two lines below are for "uisp" and the AVR910 serial programmer connected
 # to a Keyspan USB to serial converter to a Mac running Mac OS X.
@@ -68,42 +81,72 @@ UISP := uisp -dprog=$S -dserial=$(SERIAL) -dpart=auto
 
 # output directory
 OUT := out
-FWBINDIR = ../bin/firmware
+
+# where distribution images are stored
+FW_BINDIR = ../bin/firmware
 
 
 ###############################################################################
 # END of USER defined variables
 ###############################################################################
 
+# 'help' is the default target
+help::
+
+CONFIGFILE = config.mk
 # include the optional user configs:
--include .config
+-include $(CONFIGFILE)
 
-# build a default user config:
-.config:
-	@echo "MCU :=$(MCU)" > $(@)
-	@echo "ISP :=$(ISP)" >> $(@)
-	@echo "HFUSE :=$(HFUSE)" >> $(@)
-	@echo "LFUSE :=$(LFUSE)" >> $(@)
-	@echo "USBASP_FWREV_MAJ:=$(USBASP_FWREV_MAJ)" >> $(@)
-	@echo "USBASP_FWREV_MIN:=$(USBASP_FWREV_MIN)">> $(@)
+# build a user config file
+# The ifdef on fuses is used to allow MCU overrides to use default fuse values
+# from the makefile so you can do 'make fuses MCU=xxx' even when there is a
+# config file for a different MCU and get the default fuses for MCU 'xxx'
+# which would be the expected behavior.
+# note: "echo -n" was avoided since it depends on shell and if make decides
+# to use its own internal "echo" which does not support -n
+# Best to avoid depending on echo -n working.
+config:
+	@echo "# default variable values" > $(CONFIGFILE)
+	@echo "MCU := $(MCU)" >> $(CONFIGFILE)
+	@echo "# fuses use default values (below) unless explicitly overridden" >> $(CONFIGFILE)
+ifdef HFUSE
+	@echo "HFUSE := $(HFUSE)" >> $(CONFIGFILE)
+else
+	@echo "#HFUSE := $(HFUSE)" >> $(CONFIGFILE)
+endif
+ifdef LFUSE
+	@echo "LFUSE := $(LFUSE)" >> $(CONFIGFILE)
+else
+	@echo "#LFUSE := $(LFUSE)" >> $(CONFIGFILE)
+endif
+	@echo "# avrdude defaults:" >> $(CONFIGFILE)
+	@echo "ISP := $(ISP)" >> $(CONFIGFILE)
+	@echo "PORT := $(PORT)" >> $(CONFIGFILE)
+	@echo "# USBASP version:">> $(CONFIGFILE)
+	@echo "USBASP_FWREV_MAJ := $(USBASP_FWREV_MAJ)" >> $(CONFIGFILE)
+	@echo "USBASP_FWREV_MIN := $(USBASP_FWREV_MIN)">> $(CONFIGFILE)
+	@echo "# Verbose enable for make output(set to any value to enable)">> $(CONFIGFILE)
+	@echo "V := $(V)">> $(CONFIGFILE)
 
-# fuses can be overridden, but
-# pick default values based on MCU:
+
+# pick default fuse values based on MCU if not overridden
+# by commandline or config file
 ifeq ($(MCU), atmega8)
-HFUSE?=0xc9
-LFUSE?=0xef
+HFUSE ?= 0xc9
+LFUSE ?= 0xef
 else ifeq ($(MCU), atmega48)
-HFUSE?=0xdd
-LFUSE?=0xff
+HFUSE ?= 0xdd
+LFUSE ?= 0xff
 # 4k flash device
 else ifeq ($(MCU), atmega88)
-HFUSE?=0xdd
-LFUSE?=0xff
+HFUSE ?= 0xdd
+LFUSE ?= 0xff
 endif
+
 
 REV := v$(USBASP_FWREV_MAJ).$(USBASP_FWREV_MIN)
 
-# MCU specific copiler flags.
+# MCU specific compiler flags.
 # On 4k parts, disable TPI support to make it fit:
 
 CFLAGS_atmega8  := -mmcu=atmega8
@@ -120,21 +163,10 @@ USBASP_OPTS := -DUSB_CFG_DVERSION_MAJ=0x$(USBASP_FWREV_MAJ) -DUSB_CFG_DVERSION_M
 
 # create "standard" f/w base name to help identify the revision of the code
 # this is independent of the target MCU
-FW_BNAME:=usbasp-v$(USBASP_FWREV_MAJ).$(USBASP_FWREV_MIN)
+FW_BASENAME:=usbasp-$(REV)
 
-# create a "standard" file basname for all files for a given target MCU
-# if no f/w basename, then just use mcutype as file basename
-ifdef FW_BNAME
-FILE_BNAME:=$(FW_BNAME)-$(MCU)
-else
-FILE_BNAME:=$(MCU)
-endif
-
-# hexfile name unless overridden
-HEXFILE:=$(OUT)/$(MCU)/$(FILE_BNAME).hex
-
-# 'help' is the default target
-help::
+# default hexfile name unless overridden
+HEXFILE:=$(OUT)/$(MCU)/$(FW_BASENAME)-$(MCU).hex
 
 COMPILE := avr-gcc -g -Wall -O2 -Iusbdrv -I. # -DDEBUG_LEVEL=2
 
@@ -156,43 +188,43 @@ endif
 # $(1): mcu name
 define mcu_template
 
-HEXFILES += $(OUT)/$(1)/usbasp-$(REV)-$(1).hex
+HEXFILES += $(OUT)/$(1)/$(FW_BASENAME)-$(1).hex
 
-DIST_HEXFILES += $(FWBINDIR)/usbasp-$(REV)/usbasp-$(REV)-$(1).hex
-$(FWBINDIR)/usbasp-$(REV)/usbasp-$(REV)-$(1).hex: $(OUT)/$(1)/usbasp-$(REV)-$(1).hex
-	@mkdir -p $$(dir $$(@))
+NODATE_DIST_HEXFILES += $(FW_BINDIR)/$(FW_BASENAME)/$(FW_BASENAME)-$(1).hex
+$(FW_BINDIR)/$(FW_BASENAME)/$(FW_BASENAME)-$(1).hex: $(OUT)/$(1)/$(FW_BASENAME)-$(1).hex
+	$(hide) mkdir -p $$(dir $$(@))
 	cp $$< $$@
 
-DATE_DIST_HEXFILES += $(FWBINDIR)/usbasp-$(REV)-$(DATE)/usbasp-$(REV)-$(DATE)-$(1).hex
-$(FWBINDIR)/usbasp-$(REV)-$(DATE)/usbasp-$(REV)-$(DATE)-$(1).hex: $(OUT)/$(1)/usbasp-$(REV)-$(1).hex
-	@mkdir -p $$(dir $$(@))
+DATE_DIST_HEXFILES += $(FW_BINDIR)/$(FW_BASENAME)-$(DATE)/$(FW_BASENAME)-$(DATE)-$(1).hex
+$(FW_BINDIR)/$(FW_BASENAME)-$(DATE)/$(FW_BASENAME)-$(DATE)-$(1).hex: $(OUT)/$(1)/$(FW_BASENAME)-$(1).hex
+	$(hide) mkdir -p $$(dir $$(@))
 	cp $$< $$@
 
 OBJECTS_$(1) := $(addprefix $(OUT)/$(1)/,$(OBJECTS))
 DEPENDENCIES += $(patsubst %.o,%.d,$(addprefix $(OUT)/$(1)/,$(OBJECTS)))
 
 $(OUT)/$(1)/%.o: %.c
-	@mkdir -p $$(dir $$@)
+	$(hide) mkdir -p $$(dir $$@)
 	$(call pretty,"CC: $$@")
 	$(hide) $$(COMPILE) $$(CFLAGS_$(1)) $(USBASP_OPTS) -MD -c $$< -o $$@
 
 $(OUT)/$(1)/%.o: %.S
-	@mkdir -p $(dir $$@)
+	$(hide) mkdir -p $(dir $$@)
 	$(call pretty,"AS: $$@")
 	$(hide) $(COMPILE) $(CFLAGS_$(1)) $(USBASP_OPTS) -MD -c $$< -o $$@
 
 $(OUT)/$(1)/%.i: %.c
 	$(call pretty,"CPP: $$@")
-	@mkdir -p $$(dir $$@)
+	$(hide) mkdir -p $$(dir $$@)
 	$(hide) $(COMPILE) $(CFLAGS_$(1)) $(USBASP_OPTS) -dD -E -c $$< -o $$@
 
 $(OUT)/$(1)/%.i: %.S
-	@mkdir -p i$(dir $$@)
+	$(hide) mkdir -p i$(dir $$@)
 	$(call pretty,"CPP: $$@")
 	$(hide) $(COMPILE) $(CFLAGS_$(1)) $(USBASP_OPTS) -dD -E -c $$< -o $$@
 
-$(OUT)/$(1)/usbasp-$(REV)-$(1).elf: $$(OBJECTS_$(1))
-	@mkdir -p $$(dir $$@)
+$(OUT)/$(1)/$(FW_BASENAME)-$(1).elf: $$(OBJECTS_$(1))
+	$(hide) mkdir -p $$(dir $$@)
 	$(call pretty,"LD: $$@")
 	$(hide) $(COMPILE) $(CFLAGS_$(1)) $(USBASP_OPTS) -o $$@ $$^ -Wl,-Map,$$@.map
 
@@ -237,15 +269,16 @@ uisp:	$(HEXFILE)
 clean:
 	rm -rf $(OUT)
 
-# phony targets to move all hex images into a distribution directory named by rev & date
-# after the files are created you can add the directory to the repo and commit it.
-# NOTE:
-# It is important that you do a "make clean" before any of the "dist" targets
-# to ensure you only get the desired .hex files.
+# start clean by removing everything including config file
+distclean mrproper: clean
+	rm -rf $(CONFIGFILE)
 
-hexdist: $(DIST_HEXFILES)
+# targets to move all hex images into a distribution directory named by rev & date
+# after the files are created you can add directory to the repo and commit it.
 
-datehexdist: all $(DATE_DIST_HEXFILES)
+nodatehexdist: $(NODATE_DIST_HEXFILES)
+
+hexdist datehexdist: all $(DATE_DIST_HEXFILES)
 
 # debug target for date testing
 date:
@@ -261,11 +294,12 @@ help::
 	@echo "Other useful make targets"
 	@echo "       make avrdude        test avrdude"
 	@echo "       make clean          remove redundant files"
+	@echo "       make mrproper       remove all files including config file"
+	@echo "       make distclean      same as 'mrproper'"
+	@echo "       make hexdist        build & move dated .hex files to distribution dir"
+	@echo "       make nodatehexdist  build & move non-dated .hex files to distribution dir"
 	@echo "To see the pre processor output, e.g.:"
 	@echo "       make out/atmega8/isp.i"
-	@echo "On these targets make sure to do a \"make clean\" first:"
-	@echo "       make hexdist        build & move .hex files to distribution directory"
-	@echo "       make datehexdist    build & move dated .hex files to distribution directory"
 	@echo ""
 	@echo "Current values:"
 	@echo "       MCU=${MCU}"
@@ -275,18 +309,23 @@ help::
 	@echo "       ISP=${ISP}"
 	@echo "       PORT=${PORT}"
 	@echo "       HEXFILE=${HEXFILE}"
+ifdef V
+	@echo "       V=${V} (verbose mode)"
+endif
 	@echo ""
 	@echo "All values above (other than CLOCK) can be overridden"
 	@echo "To override a value:"
-	@echo "    - make .config and adapt the .config file."
-	@echo "    - or use VALUENAME=value on commandline"
-	@echo "Each known MCU type includes default values for fuses that can be overidden."
+	@echo "    - 'make config' and mauually adapt/edit the $(CONFIGFILE) file."
+	@echo "    - or 'make config VALUENAME=value' to set value in $(CONFIGFILE)"
+	@echo "    - or use VALUENAME=value' on commandline for single invocation"
+	
+	@echo "Each known MCU type includes default fuse values that can be overidden."
 	@echo "Examples:"
 	@echo "       make help MCU=mcutype"
-	@echo "       make fuses MCU=atmega48"
-	@echo "       make MCU=atmega48"
+	@echo "       make fuses MCU=atmega88"
 	@echo "       make flash MCU=atmega48"
-	@echo "       make flash MCU=atmega88 ISP=dragon_isp"
+	@echo "       make config MCU=atmega48"
+	@echo "       make config MCU=atmega88 ISP=dragon_isp"
 	@echo "       make flash ISP=usbtiny"
 	@echo "       make fuses MCU=atmega88 LFUSE=LfuseValue HFUSE=HfuseValue"
 	@echo "       make flash HEXFILE=anyprebuilt.hex MCU=mcuOfHexfile"
