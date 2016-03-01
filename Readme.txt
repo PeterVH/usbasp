@@ -38,11 +38,12 @@ USE PRECOMPILED VERSION
 Firmware:
 Existing pre-built hex images can be found in bin/firmware
 Flash with a working ISP programmer and s/w tool like avrdude or uisp etc...
-See the makefile in the firmware directory for instructions on how to
-flash existing images using make.
-type "make" or "make help".
+See the readme in the bin/firmware directory for instructions on how to
+use the included flash update utility tool.
+(flash updates with both drag and drop as well as commandline are supported)
 Set jumper J2 to activate USBasp firmware update function.
-You have to make sure to set the fuse bits for external crystal (see "make fuses").
+For a new device, you have to make sure to set the fuse bits for external
+crystal (see "make fuses" in the firmware directory).
 
 Windows:
 Start Windows and connect USBasp to the system. When Windows asks for a
@@ -54,6 +55,8 @@ Now you can run avrdude. Examples:
    avrdude -c usbasp -p at90s2313 -t
 2. Write main.hex to the flash of an ATmega8:
    avrdude -c usbasp -p atmega8 -U flash:w:main.hex
+3. Drag and Drop the desired .hex image on top of provided flash update tool
+   (See the readme in bin/firmware for details)
 
 Setting jumpers:
 J1 Power target
