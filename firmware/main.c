@@ -67,6 +67,8 @@ uchar usbFunctionSetup(uchar data[8]) {
 	} else if (data[1] == USBASP_FUNC_DISCONNECT) {
 		ispDisconnect();
 		ledRedOff();
+		/* ensure next connect can auto clock select */
+		prog_sck = USBASP_ISP_SCK_AUTO;
 
 	} else if (data[1] == USBASP_FUNC_TRANSMIT) {
 		replyBuffer[0] = ispTransmit(data[2]);
@@ -112,7 +114,7 @@ uchar usbFunctionSetup(uchar data[8]) {
 					/* ...and enter programming mode again */
 					rc = ispEnterProgrammingMode();
 					if (rc != 0)
-						prog_sck = 0;
+						prog_sck = USBASP_ISP_SCK_AUTO;
 					break;
 				}
 			}
@@ -388,4 +390,3 @@ int main(void) {
 	}
 	return 0;
 }
-
