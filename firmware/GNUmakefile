@@ -226,7 +226,7 @@ $(OUT)/$(1)/%.i: %.S
 $(OUT)/$(1)/$(FW_BASENAME)-$(1).elf: $$(OBJECTS_$(1))
 	$(hide) mkdir -p $$(dir $$@)
 	$(call pretty,"LD: $$@")
-	$(hide) $(COMPILE) $(CFLAGS_$(1)) $(USBASP_OPTS) -o $$@ $$^ -Wl,-Map,$$@.map
+	$(hide) $(COMPILE) $(CFLAGS_$(1)) $(USBASP_OPTS) -o $$@ $$^ -Wl,-Map,$$(basename $$@).map
 
 endef
 
