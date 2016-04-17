@@ -137,7 +137,7 @@ $AVRDUDE -c $ISP -p $MCU -P $PORT -U flash:w:$HEXFILE
 dudestatus=$?
 
 # check to see if flash updated succeeded
-if [ $dudestatus ]
+if [ $dudestatus -ne 0 ]
 then
 	echo FLASH update failed
 else
