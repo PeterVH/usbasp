@@ -24,12 +24,11 @@ MCUS := atmega8 atmega48 atmega88
 # Begining of USER defined variables & defaults
 #
 # Any of these values can be ovridden.
-#	1. from a config.mk config configuration file (which is ignored by git)
-#		To create a default config file to start from:
-#			make config
-#		Then adapt the config file to your needs.
+#	1. from a config.mk config configuration file
+#               (created automatically, but is ignored by git)
+#		edit the config file to your needs.
 #		You can also set values in the config file by specifying them
-#		when making the config file:
+#		to update a config file:
 #			make config VARNAME=value
 #		example:
 #			make config MCU=atmega48 ISP=dragon_ISP
@@ -94,7 +93,7 @@ FW_BINDIR = ../bin/firmware
 help::
 
 CONFIGFILE = config.mk
-# include the optional user configs:
+# include the user config file:
 -include $(CONFIGFILE)
 
 # build a user config file
@@ -105,7 +104,7 @@ CONFIGFILE = config.mk
 # note: "echo -n" was avoided since it depends on shell and if make decides
 # to use its own internal "echo" which does not support -n
 # Best to avoid depending on echo -n working.
-config:
+$(CONFIGFILE) config:
 	@echo "# default variable values" > $(CONFIGFILE)
 	@echo "MCU := $(MCU)" >> $(CONFIGFILE)
 	@echo "# fuses use default values (below) unless explicitly overridden" >> $(CONFIGFILE)
@@ -127,7 +126,6 @@ endif
 	@echo "USBASP_FWREV_MIN := $(USBASP_FWREV_MIN)">> $(CONFIGFILE)
 	@echo "# Verbose enable for make output(set to any value to enable)">> $(CONFIGFILE)
 	@echo "V := $(V)">> $(CONFIGFILE)
-
 
 # pick default fuse values based on MCU if not overridden
 # by commandline or config file
@@ -168,7 +166,7 @@ FW_BASENAME:=usbasp-$(REV)
 # default hexfile name unless overridden
 HEXFILE:=$(OUT)/$(MCU)/$(FW_BASENAME)-$(MCU).hex
 
-COMPILE := avr-gcc -g -Wall -O2 -Iusbdrv -I. # -DDEBUG_LEVEL=2
+COMPILE := avr-gcc -g -Wall -O2 -Iusbdrv -I. -fdata-sections -ffunction-sections -Wl,--gc-sections # -DDEBUG_LEVEL=2
 
 OBJECTS := usbdrv/usbdrv.o usbdrv/usbdrvasm.o usbdrv/oddebug.o isp.o clock.o tpi.o main.o
 
@@ -202,6 +200,9 @@ $(FW_BINDIR)/$(FW_BASENAME)-$(DATE)/$(FW_BASENAME)-$(DATE)-$(1).hex: $(OUT)/$(1)
 
 OBJECTS_$(1) := $(addprefix $(OUT)/$(1)/,$(OBJECTS))
 DEPENDENCIES += $(patsubst %.o,%.d,$(addprefix $(OUT)/$(1)/,$(OBJECTS)))
+
+# all objects depend on config file and makefile
+$$(OBJECTS_$(1)): $(CONFIGFILE) GNUmakefile
 
 $(OUT)/$(1)/%.o: %.c
 	$(hide) mkdir -p $$(dir $$@)
