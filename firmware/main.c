@@ -10,7 +10,7 @@
  *
  * PC2 SCK speed option.
  * GND  -> slow (8khz SCK),
- * open -> software set speed (default is 375kHz SCK)
+ * open -> software set speed (default is Auto determine SCK)
  */
 
 #include <avr/io.h>
@@ -46,13 +46,46 @@ static const uchar auto_clocks[] = {
 	USBASP_ISP_SCK_1,
 };
 
+/* Auto probing of spi clock
+ * The compiler generates smaller code when this is a seperate function vs inline
+ * in the usbFunctionSetup() code. (it won't all fit in an atmega48 without doing this)
+ */
+uchar autosck(uchar sck)
+{
+uchar i;
+
+	for (i = 0; i < (sizeof(auto_clocks) / sizeof(auto_clocks[0])); i++) {
+		ispSetSCKOption(auto_clocks[i]);
+		if (!ispEnterProgrammingMode()) {
+			sck = auto_clocks[i];
+			/* We know the highest clock speed that works,
+			 * take target briefly out of reset...  */
+			ispSafeResetPulse(); /* needed for subsequent flashing to work */
+			/* ...and enter programming mode again */
+			return sck;
+		}
+	}
+	/*
+	 * If we get here, auto sck selection failed and we pick a default.
+	 * (sck is still the orignal fallback value passed in)
+	 * If we were incorrectly told to use "AUTO" as a fallback, we pick a new one,
+	 * otherwise, we use the fallback sck that was passed in as the fallback sck.
+	 */
+	if(sck == USBASP_ISP_SCK_AUTO)
+	{
+		sck = USBASP_ISP_SCK_1500;
+	}
+	ispSetSCKOption(sck);
+	return sck;
+}
+
 uchar usbFunctionSetup(uchar data[8]) {
 
 	uchar len = 0;
 
 	if (data[1] == USBASP_FUNC_CONNECT) {
 
-		/* set SCK speed */
+		/* Force SCK speed if jumper set */
 		if ((PINC & (1 << PC2)) == 0)
 			prog_sck = USBASP_ISP_SCK_8;
 
@@ -63,6 +96,21 @@ uchar usbFunctionSetup(uchar data[8]) {
 
 		ledRedOn();
 		ispConnect();
+
+		/*
+		 * Auto sck probing is done here vs in FUNC_ENABLEPROG
+		 * So that host applications that use FUNC_TRANSMIT instead to
+		 * their own raw ISP port access instead of letting the USBasp device
+		 * do it form them, will also benefit from the auto sck probing.
+		 */
+
+		if (prog_sck == USBASP_ISP_SCK_AUTO) {
+			prog_sck = autosck(USBASP_ISP_SCK_1500);
+		}
+
+		replyBuffer[0] = 0;		// connect worked
+		replyBuffer[1] = prog_sck;	// return connected ISP clock
+		len = 2;
 
 	} else if (data[1] == USBASP_FUNC_DISCONNECT) {
 		ispDisconnect();
@@ -96,31 +144,8 @@ uchar usbFunctionSetup(uchar data[8]) {
 		len = 0xff; /* multiple in */
 
 	} else if (data[1] == USBASP_FUNC_ENABLEPROG) {
-		uchar rc = 1;
-
-		if (prog_sck != USBASP_ISP_SCK_AUTO)
-			rc = ispEnterProgrammingMode();
-		else {
-			/* Auto probing of spi clock */
-			uchar i;
-			for (i = 0; i < (sizeof(auto_clocks) / sizeof(auto_clocks[0])); i++) {
-				ispSetSCKOption(auto_clocks[i]);
-				rc = ispEnterProgrammingMode();
-				if (rc == 0) {
-					prog_sck = auto_clocks[i];
-					/* We know the highest clock speed that works,
-					 * take target briefly out of reset...  */
-					ispSafeResetPulse(); /* needed for subsequent flashing to work */
-					/* ...and enter programming mode again */
-					rc = ispEnterProgrammingMode();
-					if (rc != 0)
-						prog_sck = USBASP_ISP_SCK_AUTO;
-					break;
-				}
-			}
-		}
 		len = 1;
-		replyBuffer[0] = rc;
+		replyBuffer[0] = ispEnterProgrammingMode();
 
 	} else if (data[1] == USBASP_FUNC_WRITEFLASH) {
 
@@ -352,39 +377,102 @@ uchar usbFunctionWrite(uchar *data, uchar len) {
 
 	return retVal;
 }
+#ifndef USBASP_CFG_DISABLE_USB_LEDSTATUS
+/*
+ * Hooks to control green led by USB status:
+ * turn on: when a usb addresss is assigned (during enumeration)
+ * turn off: when usb bus is reset
+ */
+void usbHadReset() {
+	ledGreenOff();
+}
+
+void usbAddressAssigned() {
+	ledGreenOn();
+}
+#endif
 
 int main(void) {
-	uchar i, j;
 
-	/* no pullups on USB and ISP pins */
-	PORTD = 0;
-	PORTB = 0;
-	/* all outputs except PD2 = INT0 */
-	DDRD = ~(1 << 2);
-
-	/* output SE0 for USB reset */
-	DDRB = ~0;
-	j = 0;
-	/* USB Reset by device only required on Watchdog Reset */
-	while (--j) {
-		i = 0;
-		/* delay >10ms for USB reset */
-		while (--i)
-			;
-	}
 	/* all USB and ISP pins inputs */
 	DDRB = 0;
 
-	/* all inputs except PC0, PC1 */
-	DDRC = 0x03;
-	PORTC = 0xfe;
+	/* no pullups on USB and ISP pins */
+	PORTB = 0;
 
+	/* set PD0 and PD1 low to drive the ISP pins low */
+	PORTD = 0;
+
+	/*
+ 	 * set PD0 and PD1 as outputs so when used on 10 pin ISP connector,
+	 * ISP pins 4 and 6 will be driven low
+	 * PD2 is input for using INT0 used by V-USB
+	 */
+	DDRD = ((1 << PD0) | (1 << PD1) );
+
+
+	/*
+	 * set PC0 and PC1 as outputs for LEDs
+	 * set PC2 as input for slow SCK jumper
+	 */
+	DDRC = ( (1<< PC0) | (1 << PC1) );
+
+	/*
+	 * turn off red (PC0) & green (PC1) leds, and enable pullup for slow SCK jumper (PC2)
+	 */
+
+	PORTC = ( (1 << PC0) | (1 << PC1) | (1 << PC2));
+
+	/*
+	 * if USB led status is disabled, turn green led on now
+	 * Otherwise, green led will light when device has enumerated
+	 */
+#ifdef USBASP_CFG_DISABLE_USB_LEDSTATUS
+	ledGreenOn();
+#endif
+	
 	/* init timer */
 	clockInit();
 
-	/* main event loop */
+	cli();
+	
+	/* Initialize V-USB */
 	usbInit();
-	sei();
+	
+	/*
+	 * perform a USB device disconnect
+	 * Note: this is only necessary if the device wants to re-enumerate
+	 * with the host without unplugging when restarting.
+	 * This would be the case for a Watchdog Reset
+	 * (which is currently not used by this f/w)
+	 * Or just after a f/w update.
+	 * Warning:
+	 * While it works, given the USBasp h/w, this does violate the USB spec.
+	 * See the notes in usbdrv.h
+	 * with respect to usbDeviceDisconnect() / usbDeviceConnect()
+	 * for further details.
+	 *
+	 * WARNING:
+	 * The code below will flash the red LED unless USB_LEDSTATUS is disabled by
+	 * defining USB_CFG_DISABLE_USB_LEDSTATUS
+	 * h/w that uses the red led output signal for controlling an outut buffer may
+	 * have issues with this since this flash will momentarily enable the output buffer.
+	 */
+	 
+	usbDeviceDisconnect();
+#ifndef USBASP_CFG_DISABLE_USB_LEDSTATUS
+	ledRedOn();
+#endif
+	// delay min of 10ms to allow host time to see disconnect
+	clockWait(64); // delay 20 ms
+#ifndef USBASP_CFG_DISABLE_USB_LEDSTATUS
+	ledRedOff();
+#endif
+	usbDeviceConnect();
+	
+	sei(); // enable AVR interrupts
+
+	/* main event loop */
 	for (;;) {
 		usbPoll();
 	}

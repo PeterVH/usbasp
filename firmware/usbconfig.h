@@ -167,15 +167,23 @@ section at the end of this file).
  * proceed, do a return after doing your things. One possible application
  * (besides debugging) is to flash a status LED on each packet.
  */
-/* #define USB_RESET_HOOK(resetStarts)     if(!resetStarts){hadUsbReset();} */
+
+#ifndef USBASP_CFG_DISABLE_USB_LEDSTATUS
+#ifndef __ASSEMBLER__
+extern void usbHadReset();
+extern void usbAddressAssigned();
+#endif
+
+#define USB_RESET_HOOK(resetStarts)     if(!resetStarts){usbHadReset();}
 /* This macro is a hook if you need to know when an USB RESET occurs. It has
  * one parameter which distinguishes between the start of RESET state and its
  * end.
  */
-/* #define USB_SET_ADDRESS_HOOK()              hadAddressAssigned(); */
+#define USB_SET_ADDRESS_HOOK()              usbAddressAssigned();
 /* This macro (if defined) is executed when a USB SET_ADDRESS request was
  * received.
  */
+#endif
 #define USB_COUNT_SOF                   0
 /* define this macro to 1 if you need the global variable "usbSofCount" which
  * counts SOF packets. This feature requires that the hardware interrupt is
