@@ -1,4 +1,11 @@
 usbasp (v1.06)
+- renaming of pre-built f/w images for consistency
+images are now seperated by release and named by version and date.
+The versioning uses the usb h/w version which is 2 eight bit values. Maj.Min
+minor numbers lower than 10 will be zero filled.
+i.e. v1.02 v1.03 ... v1.06 etc... 
+This is to be consistent with the way tools like linux lsusb and Windows device
+manger report h/w version numbers.
 - extended address byte bug fix (for flash > 128kb)
 - updated to latest V-USB official release code 20121206
 - can be built without TPI support so it fits in 4k flash for atmega48
@@ -13,7 +20,6 @@ selects best possible from: 1.5M, 375k, 93.75k, 16k, 500hz
 - updated linux udev rules for newer ATTRS syntax
 - added udev rules for AVRisp and AVR dragon
 - better easier to use GNUmakefile with user config file capability
-- renaming of pre-built f/w images
 
 
 usbasp (v1.05)

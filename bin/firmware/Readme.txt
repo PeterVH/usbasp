@@ -2,6 +2,19 @@ Pre-compiled .hex images can be flashed using the tools
 - winflash
 - bashflash & bashflashDnD
 
+Naming convention:
+The pre-built images follow a naming convention of
+usbasp-vMAJ.MIN-YYYY-MM-DD in attempt to provide consistent naming.
+Where MAJ.MIN is the release version.
+If MIN is less than 10 then it will be zero filled.
+This MAJ.MIN version is also filled in to the USB h/w version information
+and will be reported by tools like linux lsusb and Windows Device manager.
+
+The USB h/w revisions consists of a 8bit major and 8bit minor revision number.
+In this example: usbasp-v1.06-2016-04-01
+Windows device manager will report the h/w id as 0106
+Linux lsusb will report the h/w rev is 1.06
+
 ===========
 On Windows:
 ===========
