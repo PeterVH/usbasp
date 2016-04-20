@@ -1,0 +1,29 @@
+# This .desktop file is to allow gnome drag and drop firmware updates
+#
+# To use simply drag and drop the desired .hex file on top of this file
+# This will call make with the appropriate "autoflash" target arguments and
+# let the makefile handle it from there. When make finishes, the user will
+# be prompted to press a key to exit and close the terminal window.
+#
+# Gnome .desktop file is required because !@#@! gnome gui shells don't support
+# drag and drop on top of shell scripts.
+# (Even Windows can do drag and drop with batch files!)
+# gnome shells like nautilus, caja, nemo, etc... also don't properly set up the
+# childs working directory prior to starting the chile.
+# They set it to the user home directory - which is useless.
+# Because of this we have to cd to the directory where this .desktop file is
+# before we start doing anything else.
+#
+# For some reason the "Terminal" option does not seem to work, so a
+# gnome-terminal is explicitly started around the bash shell script
+#
+
+[Desktop Entry]
+Version=1.0
+Name=bashflashDnD
+Comment=Flash firmware image using ShellFlash helper script
+Exec=gnome-terminal -e "bash -c ' cd `dirname %k`;./bashflash %f;read -n1 -p \"press any key to exit\"'"
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Application;

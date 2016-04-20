@@ -1,3 +1,30 @@
+usbasp (v1.06)
+- renaming of pre-built f/w images for consistency
+images are now seperated by release and named by version and date.
+The versioning uses the usb h/w version which is 2 eight bit values. Maj.Min
+minor numbers lower than 10 will be zero filled.
+i.e. v1.02 v1.03 ... v1.06 etc... 
+This is to be consistent with the way tools like linux lsusb and Windows device
+manger report h/w version numbers.
+- extended address byte bug fix (for flash > 128kb)
+- updated to latest V-USB official release code 20121206
+- can be built without TPI support so it fits in 4k flash for atmega48
+(TPI automatically disabled in atmega48 builds)
+- h/w initialization & s/w spi i/o cleanded up and corrected
+- auto sck clock rate probing when AUTO sck clock rate specified
+- FUNC_CONNECT now returns sck clock rate, will indicate auto probed clock
+selects best possible from: 1.5M, 375k, 93.75k, 16k, 500hz
+- added new FUNC_GETISPSCK command to get current sck clock rate
+- added drag and drop flash update tools for pre-built images
+- Greed LED lights when device has finished enumerating with host
+- updated linux udev rules for newer ATTRS syntax
+- added udev rules for AVRisp and AVR dragon
+- better easier to use GNUmakefile with user config file capability
+
+
+usbasp (v1.05)
+experimental interrim temporary release with extended byte addressing bug fix
+
 usbasp.2011-05-28 (v1.4)
 ------------------------
 - added TPI support for ATTiny4/5/6/10 (by Slawomir Fraś)

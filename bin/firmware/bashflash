@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+#===========================================================================
+# bash script to flash a hex image using avrdude
+# This can be used standalone but is intended to be used as a drag and drop
+# helper.
+# To use with drag and drop, just drop the desired .hex file on top of the
+# this script (if your OS allows it) or on top of the "DnD" .desktop helper
+# which will call this script.
+#
+# avrdude must be on PATH or can be hard coded in AVRDUDE variable below
+#
+# MCU type is automatically determined from the filename.
+# Filename must have "atmegaX" in the filename and a dash, dot, or underbar
+# must follow, but it can be anywhere in the filename
+# i.e. atmega8.hex  atmega88-2011-10-9.hex usbasp-v1.5-2016-01-12-atmega48.hex
+# This can be disabled by hard coding the MCU type below
+#
+# Created: Jan 2016
+#  Author: Bill Perry bperrybap@opensource.billsworld.billandterrie.com
+#===========================================================================
+
+# if avrdude is not on path, put full path to it here
+AVRDUDE=avrdude
+
+# pick your ISP type and port
+#
+# examples:
+# ISP:=bsd          PORT:=/dev/parport0
+# ISP:=ponyser      PORT:=/dev/ttyS1
+# ISP:=stk500       PORT:=/dev/ttyS1
+# ISP:=stk500v2     PORT:=/dev/ttyUSB0
+# ISP:=usbasp       PORT:=usb
+# ISP:=usbtiny      PORT:=usb
+# ISP:=dragon_isp   PORT:=usb
+ISP=USBasp
+PORT=usb
+
+# default MCU type 
+# 'auto' means to determine from filename
+MCU=auto
+
+# Interactive mode.
+# If set to 'y', then allow user to override all values interactively
+IMODE=y
+
+#===========================================================================
+# Now do start doing some work
+#===========================================================================
+
+# get name of this script
+pname=`basename $0`
+
+# if not in interactive mode, require filename argument
+# which is passed automatically by drag and drop
+if [  "$IMODE" != "y"  -a  $# != 1 ]
+then
+	echo "Usage: $pname: [HexFilename]"
+	echo "    OR drag and drop hexfile on top of script or .desktop file "
+	exit 1
+fi
+
+# get name of hex file which is passed automatically by drag and drop
+if [ $# = 1 ]
+then
+	HEXFILE=$1
+else
+	HEXFILE=""
+fi
+
+# check for interactive mode
+# and allow user to override/change any defaults
+# default value will be shown and is what will be used if <ENTER> is pressed
+if [ "$IMODE" = "y" ]
+then
+	echo "-------------------------------------------------------------"
+	echo "$pname avrdude flash utility"
+	echo "-------------------------------------------------------------"
+	echo "Enter avrdude options:"
+
+	read -e -p "avrdude command:" -i "$AVRDUDE" AVRDUDE
+	read -e -p "avrdude ISP programmer:" -i "$ISP" ISP
+	read -e -p "avrdude PORT:" -i "$PORT" PORT
+	# loop while empty HEXFILE
+	while
+		read -e -p "hexfile:" -i "$HEXFILE" HEXFILE ;
+		[ "$HEXFILE" = "" ]
+	do
+		 :;
+	done
+fi
+
+#
+# automatically determine MCU type for avrdude based on filename.
+# this is useful to flash existing distribution images
+# If there is a "atmega[0-9]*" in the filename just before a . then that
+# will be used
+# If it is not found, then the full filename will be used as the "MCU" which
+# will fail.
+
+# If auto MCU type then do auto mcu detection code
+if [ "$MCU" = "auto" ]
+then
+	MCU=`echo $HEXFILE | sed -e 's/\(.*\)\(atmega[0-9]*\)\..*/\2/'`
+
+	# if MCU is same as original filename, we could not determine MCU type
+	if [ "$MCU" = "$HEXFILE" ]
+	then
+		echo "$pname: Unable to determine MCU type from filename"
+		echo "    filename: $HEXFILE"
+		if [ "$IMODE" != "y" ]
+		then
+			exit 1
+		else
+			MCU=""
+		fi
+	fi
+fi
+
+# in intereactive mode allow modifying the MCU type
+# this can be very useful since the auto mcu detection can fail
+# to properly determine the MCU from the filename
+if [ "$IMODE" = "y" ]
+then
+	# loop while empty MCU type
+	while
+		read -e -p "mcu type:" -i "$MCU" MCU
+		[ "$MCU" = "" ]
+	do
+		 :;
+	done
+fi
+
+# run avrdude command
+echo $AVRDUDE -c $ISP -p $MCU -P $PORT -U flash:w:$HEXFILE
+$AVRDUDE -c $ISP -p $MCU -P $PORT -U flash:w:$HEXFILE
+
+dudestatus=$?
+
+# check to see if flash updated succeeded
+if [ $dudestatus -ne 0 ]
+then
+	echo FLASH update failed
+else
+	echo FLASH successfully updated
+fi
+
+# exit with avrdude command status
+exit $dudestatus
