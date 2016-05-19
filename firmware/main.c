@@ -37,12 +37,13 @@ static unsigned int prog_pagesize;
 static uchar prog_blockflags;
 static uchar prog_pagecounter;
 
-/* Array of clock speeds try during auto probing */
+/* Array of clock speeds to try during auto probing */
 static const uchar auto_clocks[] = {
 	USBASP_ISP_SCK_1500,
 	USBASP_ISP_SCK_375,
 	USBASP_ISP_SCK_93_75,
 	USBASP_ISP_SCK_16,
+	USBASP_ISP_SCK_4,
 	USBASP_ISP_SCK_1,
 };
 
@@ -56,25 +57,30 @@ uchar i;
 
 	for (i = 0; i < (sizeof(auto_clocks) / sizeof(auto_clocks[0])); i++) {
 		ispSetSCKOption(auto_clocks[i]);
+		ispSafeResetPulse(); // ensure each attempt starts fresh
 		if (!ispEnterProgrammingMode()) {
-			sck = auto_clocks[i];
-			/* We know the highest clock speed that works,
-			 * take target briefly out of reset...  */
-			ispSafeResetPulse(); /* needed for subsequent flashing to work */
-			/* ...and enter programming mode again */
-			return sck;
+			/*
+			 * it worked, but try again, as an extra precaution
+			 */
+			ispSafeResetPulse();
+			if (!ispEnterProgrammingMode()) {
+				/* This is the highest clock speed that worked.
+				 * take target briefly out of reset... 
+				 * needed for subsequent flashing to work
+				 * since programming mode will be entered again
+				 */
+				sck = auto_clocks[i];
+				ispSafeResetPulse();
+				return sck;
+			}
 		}
 	}
+
 	/*
-	 * If we get here, auto sck selection failed and we pick a default.
+	 * If we get here, auto sck selection failed.
+	 * we use the sck that was passed in as the fallback sck.
 	 * (sck is still the orignal fallback value passed in)
-	 * If we were incorrectly told to use "AUTO" as a fallback, we pick a new one,
-	 * otherwise, we use the fallback sck that was passed in as the fallback sck.
 	 */
-	if(sck == USBASP_ISP_SCK_AUTO)
-	{
-		sck = USBASP_ISP_SCK_1500;
-	}
 	ispSetSCKOption(sck);
 	return sck;
 }
@@ -87,7 +93,7 @@ uchar usbFunctionSetup(uchar data[8]) {
 
 		/* Force SCK speed if jumper set */
 		if ((PINC & (1 << PC2)) == 0)
-			prog_sck = USBASP_ISP_SCK_8;
+			prog_sck = USBASP_ISP_SCK_4;
 
 		ispSetSCKOption(prog_sck);
 
@@ -99,13 +105,18 @@ uchar usbFunctionSetup(uchar data[8]) {
 
 		/*
 		 * Auto sck probing is done here vs in FUNC_ENABLEPROG
-		 * So that host applications that use FUNC_TRANSMIT instead to
+		 * So that host applications that use FUNC_TRANSMIT to do
 		 * their own raw ISP port access instead of letting the USBasp device
-		 * do it form them, will also benefit from the auto sck probing.
+		 * do it for them will also benefit from the auto sck probing.
 		 */
 
 		if (prog_sck == USBASP_ISP_SCK_AUTO) {
-			prog_sck = autosck(USBASP_ISP_SCK_1500);
+			/*
+			 * we could fail the connect command if auto sck fails,
+			 * instead, we will fallback to a very slow clock.
+			 * as a failsafe. (This shouldn't ever happen)
+			 */
+			prog_sck = autosck(USBASP_ISP_SCK_4); // if auto fails, fallback to a slow clock
 		}
 
 		replyBuffer[0] = 0;		// connect worked
