@@ -10,6 +10,7 @@
  */
 
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include "isp.h"
 #include "clock.h"
 #include "usbasp.h"
@@ -48,7 +49,7 @@ void ispSetSCKOption(uchar option) {
 			break;
 		case USBASP_ISP_SCK_375:
 		default:
-			/* enable SPI, master, 375kHz, XTAL/32 (default) */
+			/* enable SPI, master, 375kHz, XTAL/32 */
 			sck_spcr = (1 << SPE) | (1 << MSTR) | (1 << SPR1);
 			sck_spsr = (1 << SPI2X);
 			break;
@@ -124,10 +125,12 @@ void ispConnect() {
 
 void ispDisconnect() {
 
+	cli();
 	/* set all ISP pins inputs */
 	ISP_DDR &= ~((1 << ISP_RST) | (1 << ISP_SCK) | (1 << ISP_MOSI));
 	/* switch pullups off */
 	ISP_OUT &= ~((1 << ISP_RST) | (1 << ISP_SCK) | (1 << ISP_MOSI));
+	sei();
 
 	/* disable hardware SPI */
 	spiHWdisable();
@@ -135,10 +138,18 @@ void ispDisconnect() {
 
 void ispSafeResetPulse(void)
 {
+	/* 
+	 * AVR can not set mutiple bits atomically so
+	 * cli()/sei() are used to ensure operations are atomic
+	 * since USB pins share the same port.
+	 */
+
+	cli();
 	/* set SCK and MOSI input */
 	ISP_DDR &= ~((1 << ISP_SCK) | (1 << ISP_MOSI));
 	/* keep tartget in reset, switch SCK an MOSI pullups off */
 	ISP_OUT &= ~((1 << ISP_RST) | (1 << ISP_SCK) | (1 << ISP_MOSI));
+	sei();
 
 	/* disable hardware SPI */
 	spiHWdisable();
@@ -152,8 +163,10 @@ void ispSafeResetPulse(void)
 	/* wait >20 msec */
 	clockWait((1000/320) * 30);
 
+	cli();
 	/* set SCK and MOSI output */
 	ISP_DDR |= (1 << ISP_SCK) | (1 << ISP_MOSI);
+	sei();
 }
 
 uchar ispTransmit_sw(uchar send_byte) {
